@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rutas TUC Managua</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+      }
+
+      /* EL CONTENEDOR DEL MAPA NECESITA ALTURA DEFINIDA */
+      #mapa {
+        height: 90vh; /* 90% de la altura de la pantalla */
+        width: 100%;
+      }
+
+      /* Un panel flotante para los botones */
+      #controles {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1000; /* Para que flote sobre el mapa */
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      }
+
+      button {
+        display: block;
+        margin-bottom: 5px;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+   <div id="controles">
+        <h3>Selecciona una Ruta</h3>
+
+        <% if (rutasDisponibles && rutasDisponibles.length > 0) { %>
+            
+            <% rutasDisponibles.forEach((ruta) => { %>
+                <button onclick="mostrarRuta('<%= ruta.codigo_ruta %>')">
+                    Ruta <%= ruta.codigo_ruta %>
+                </button>
+            <% }); %>
+
+        <% } else { %>
+            <p>No hay rutas registradas.</p>
+        <% } %>
+
+        <hr>
+        <button onclick="limpiarMapa()" style="background-color: #6c757d;">Limpiar Mapa</button>
+    </div>
+
+    <div id="mapa"></div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <script>
+      // --- CONFIGURACIÓN DEL MAPA ---
+
+      // 1. Inicializar el mapa centrado en Managua
+      // Coordenadas: [Latitud, Longitud] -> 12.136 (Managua Centro), -86.25
+      const map = L.map("mapa").setView([12.136, -86.25], 13);
+
+      // 2. Cargar la capa base (El dibujo de las calles - OpenStreetMap)
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      // Variable para guardar la ruta actual y poder borrarla después
+      let capaRutaActual = null;
+
+      // --- DATOS DE PRUEBA (Simulando lo que vendrá de la BD) ---
+      // Esto es un GeoJSON real de un pedacito cerca de Metrocentro
+      const ruta104GeoJSON = {
+        type: "Feature",
+        properties: { nombre: "Ruta 104" },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [-86.265, 12.13], // Punto A
+            [-86.26, 12.132], // Punto B
+            [-86.255, 12.135], // Metrocentro (aprox)
+            [-86.25, 12.138], // Hacia arriba
+          ],
+        },
+      };
+
+      // --- FUNCIONES ---
+
+      async function mostrarRuta(nombre) {
+        limpiarMapa();
+
+        console.log("Buscando ruta en la base de datos:", nombre);
+
+        try {
+          // 1. Pedimos los datos a TU servidor Node.js
+          const respuesta = await fetch(`/api/ruta/${nombre}`);
+
+          if (!respuesta.ok) throw new Error("No se encontró la ruta");
+
+          const datosGeoJSON = await respuesta.json();
+
+          // 2. Dibujamos con el color que viene de la BD
+          // DIBUJAR EN EL MAPA
+                capaRutaActual = L.geoJSON(datosGeoJSON, {
+                    
+                    // A. Estilo para las LÍNEAS (Rutas)
+                    style: function(feature) {
+                        if (feature.properties.tipo === 'ruta') {
+                            return {
+                                color: feature.properties.color,
+                                weight: 6,
+                                opacity: 0.8
+                            };
+                        }
+                    },
+
+                    // B. Estilo para los PUNTOS (Paradas)
+                    pointToLayer: function(feature, latlng) {
+                        if (feature.properties.tipo === 'parada') {
+                            // Dibujamos un círculo bonito
+                            return L.circleMarker(latlng, {
+                                radius: 6,
+                                fillColor: "#ffffff", // Blanco relleno
+                                color: "#000",        // Borde negro
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                        }
+                    },
+
+                    // C. Popups (Al hacer clic)
+                    onEachFeature: function(feature, layer) {
+                        if (feature.properties.tipo === 'parada') {
+                            layer.bindPopup("🚏 " + feature.properties.nombre);
+                        } else {
+                            layer.bindPopup("🚌 Recorrido: " + feature.properties.sentido);
+                        }
+                    }
+
+                }).addTo(map);
+
+          map.fitBounds(capaRutaActual.getBounds());
+        } catch (error) {
+          alert("Error: " + error.message);
+          console.error(error);
+        }
+      }
+
+      function limpiarMapa() {
+        if (capaRutaActual) {
+          map.removeLayer(capaRutaActual);
+          capaRutaActual = null;
+        }
+      }
+    </script>
+  </body>
+</html>
