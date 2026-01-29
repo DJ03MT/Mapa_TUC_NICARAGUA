@@ -1,22 +1,48 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <title>Registro - Rutas TUC</title>
-    <style>body { font-family: sans-serif; padding: 40px; text-align: center; }</style>
-</head>
-<body>
-    <h2>Crear Cuenta Nueva</h2>
-    
-    <% if (locals.error) { %>
-        <p style="color: red;"><%= error %></p>
-    <% } %>
+<html lang="es">
 
-    <form action="/registro" method="POST">
-        <input type="text" name="nombre" placeholder="Nombre Completo" required><br><br>
-        <input type="email" name="email" placeholder="Correo Electrónico" required><br><br>
-        <input type="password" name="password" placeholder="Contraseña" required><br><br>
-        <button type="submit">Registrarse</button>
-    </form>
-    <p>¿Ya tienes cuenta? <a href="/login">Inicia Sesión</a></p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro - NicApp</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-box">
+            <h1 style="color: var(--primary); margin-bottom: 10px;">Únete a NicApp 🇳🇮</h1>
+            <p style="color: #666; margin-bottom: 20px;">Crea tu cuenta para guardar favoritos</p>
+
+            <% if (locals.error) { %>
+                <div
+                    style="background: #ffebee; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;">
+                    <%= error %>
+                </div>
+                <% } %>
+
+                    <form action="/registro" method="POST">
+                        <input class="auth-input" type="text" name="nombre" placeholder="Nombre Completo" required>
+
+                        <input class="auth-input" type="email" name="email" placeholder="Correo Electrónico" required>
+
+                        <input class="auth-input" type="password" name="password" placeholder="Crea una Contraseña"
+                            required minlength="6">
+
+                        <button class="auth-btn" type="submit">Registrarse Gratis</button>
+                    </form>
+
+                    <p style="margin-top: 20px;">
+                        ¿Ya tienes cuenta? <a href="/login" style="color: var(--primary); font-weight: bold;">Inicia
+                            Sesión</a>
+                    </p>
+
+                    <p style="margin-top: 10px;">
+                        <a href="/" style="color: #999; text-decoration: none; font-size: 0.9rem;">← Volver al mapa sin
+                            cuenta</a>
+                    </p>
+        </div>
+    </div>
 </body>
+
 </html>

@@ -2,294 +2,175 @@
 <html lang="es">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rutas TUC Managua</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NicApp - Rutas TUC</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: sans-serif;
-    }
-
-    /* EL CONTENEDOR DEL MAPA NECESITA ALTURA DEFINIDA */
-    #mapa {
-      height: 90vh;
-      /* 90% de la altura de la pantalla */
-      width: 100%;
-    }
-
-    /* Un panel flotante para los botones */
-    #controles {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      z-index: 1000;
-      /* Para que flote sobre el mapa */
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-    }
-
-    button {
-      display: block;
-      margin-bottom: 5px;
-      padding: 10px 20px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/css/estilos.css">
 </head>
 
 <body>
-  <div
-    style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 5px;">
-    <% if (usuario) { %>
-      <b>Hola, <%= usuario.nombre %> 👋</b> |
-      <a href="/logout">Cerrar Sesión</a>
-      <% } else { %>
-        <a href="/login">Iniciar Sesión</a> |
-        <a href="/registro">Registrarse</a>
-        <% } %>
-  </div>
-  <div id="controles">
-    <h3>Selecciona una Ruta</h3>
-
-    <% if (rutasDisponibles && rutasDisponibles.length> 0) { %>
-
-      <% rutasDisponibles.forEach((ruta)=> { %>
-
-        <div style="margin-bottom: 5px; display: flex; align-items: center;">
-
-          <button onclick="mostrarRuta('<%= ruta.codigo_ruta %>')" style="flex-grow: 1; margin-right: 5px;">
-            Ruta <%= ruta.codigo_ruta %>
-          </button>
-
-          <% if (locals.usuario) { %>
-            <% const esFav=(typeof misFavoritos !=='undefined' && misFavoritos.includes(ruta.codigo_ruta)); %>
-
-              <span onclick="toggleFavorito('<%= ruta.codigo_ruta %>', this)" style="cursor: pointer; font-size: 20px;"
-                title="<%= esFav ? 'Quitar de favoritos' : 'Guardar en favoritos' %>">
-                <%= esFav ? '⭐' : '☆' %>
-              </span>
-              <% } %>
-
-        </div>
-
-        <% }); %>
-
-          <% } else { %>
-            <p>No hay rutas registradas.</p>
-            <% } %>
-
-              <hr>
-              <button onclick="limpiarMapa()" style="background-color: #6c757d;">Limpiar Mapa</button>
-              <hr>
-              <button onclick="ubicarUsuario()" style="background-color: #28a745;">📍 Ubicarme</button>
-  </div>
 
   <div id="mapa"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <div class="creditos">
+    © 2026 NicApp | Desarrollado por Estudiante de Ingeniería de Sistemas (UNI)
+  </div>
 
+  <div class="nicapp-ui">
+
+    <nav class="navbar">
+      <div class="brand">
+        🚌 NicApp
+      </div>
+      <div class="user-controls">
+        <% if (usuario) { %>
+          <a href="/logout">Salir (<%= usuario.nombre.split(' ')[0] %>)</a>
+                <% } else { %>
+                    <a href="/login" style="background: var(--primary); color: white;">Entrar</a>
+                <% } %>
+            </div>
+        </nav>
+
+        <button class="gps-btn" onclick="ubicarUsuario()" title="Mi Ubicación">
+            📍
+        </button>
+
+        <div class="panel-rutas">
+            <h3 style="margin-bottom: 15px; color: var(--primary);">Rutas Disponibles</h3>
+            
+            <% if (rutasDisponibles && rutasDisponibles.length > 0) { %>
+                <% rutasDisponibles.forEach((ruta) => { %>
+                    <div class="ruta-btn-container">
+                        <button class="btn-ruta" onclick="mostrarRuta(' <%=ruta.codigo_ruta %>')">
+              Ruta <%= ruta.codigo_ruta %>
+                </button>
+
+                <% if (locals.usuario) { %>
+                  <% const esFav=(typeof misFavoritos !=='undefined' && misFavoritos.includes(ruta.codigo_ruta)); %>
+                    <span class="star-btn" onclick="toggleFavorito('<%= ruta.codigo_ruta %>', this)">
+                      <%= esFav ? '⭐' : '☆' %>
+                    </span>
+                    <% } %>
+      </div>
+      <% }); %>
+        <% } else { %>
+          <p style="text-align: center; color: #777;">Cargando rutas...</p>
+          <% } %>
+
+            <button onclick="limpiarMapa()"
+              style="width:100%; padding:10px; margin-top:10px; border:1px solid #ddd; background:white; border-radius:8px;">
+              Limpiar Mapa
+            </button>
+  </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // --- CONFIGURACIÓN DEL MAPA ---
+    // 1. INICIALIZAR MAPA
+    const map = L.map('mapa', { zoomControl: false }).setView([12.136, -86.25], 13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    // 1. Inicializar el mapa centrado en Managua
-    // Coordenadas: [Latitud, Longitud] -> 12.136 (Managua Centro), -86.25
-    const map = L.map("mapa").setView([12.136, -86.25], 13);
+    // Mover controles de zoom a la derecha arriba
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 2. Cargar la capa base (El dibujo de las calles - OpenStreetMap)
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
-
-    // Variable para guardar la ruta actual y poder borrarla después
     let capaRutaActual = null;
+    let marcadorUsuario = null;
+    let circuloPrecision = null;
+    let rastreoActivo = false;
 
-    // --- DATOS DE PRUEBA (Simulando lo que vendrá de la BD) ---
-    // Esto es un GeoJSON real de un pedacito cerca de Metrocentro
-    const ruta104GeoJSON = {
-      type: "Feature",
-      properties: { nombre: "Ruta 104" },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-86.265, 12.13], // Punto A
-          [-86.26, 12.132], // Punto B
-          [-86.255, 12.135], // Metrocentro (aprox)
-          [-86.25, 12.138], // Hacia arriba
-        ],
-      },
-    };
+    // --- GPS MEJORADO ---
+    function ubicarUsuario() {
+      if (!rastreoActivo) {
+        // Chequeo de seguridad para iPhone/Android
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+          alert("⚠️ ALERTA DE SEGURIDAD ⚠️\n\nTu celular bloquea el GPS porque esta conexión no es HTTPS.\n\nPara que funcione en el iPhone, necesitas un certificado SSL o usar 'ngrok' en desarrollo.");
+        }
 
-    // --- FUNCIONES ---
+        map.locate({ setView: true, maxZoom: 17, watch: true, enableHighAccuracy: true });
+        rastreoActivo = true;
+        // Feedback visual botón
+        document.querySelector('.gps-btn').style.background = '#e8f5e9';
+        document.querySelector('.gps-btn').style.border = '2px solid #28a745';
+      } else {
+        map.stopLocate();
+        rastreoActivo = false;
+        document.querySelector('.gps-btn').style.background = 'white';
+        document.querySelector('.gps-btn').style.border = 'none';
+        alert("Rastreo detenido");
+      }
+    }
 
+    map.on('locationfound', (e) => {
+      const radio = e.accuracy / 2;
+      if (marcadorUsuario === null) {
+        marcadorUsuario = L.marker(e.latlng).addTo(map).bindPopup("Tú").openPopup();
+        circuloPrecision = L.circle(e.latlng, { radius: radio, color: '#0047AB' }).addTo(map);
+      } else {
+        marcadorUsuario.setLatLng(e.latlng);
+        circuloPrecision.setLatLng(e.latlng).setRadius(radio);
+      }
+    });
+
+    map.on('locationerror', (e) => {
+      alert("Error GPS: " + e.message + "\n(Recuerda: En iPhone requieres HTTPS)");
+    });
+
+    // --- FUNCIONES DE RUTA Y FAVORITOS (Las mismas de antes) ---
     async function mostrarRuta(nombre) {
-      limpiarMapa();
-
-      console.log("Buscando ruta en la base de datos:", nombre);
+      if (capaRutaActual) map.removeLayer(capaRutaActual);
 
       try {
-        // 1. Pedimos los datos a TU servidor Node.js
-        const respuesta = await fetch(`/api/ruta/${nombre}`);
+        const res = await fetch(`/api/ruta/${nombre}`);
+        if (!res.ok) throw new Error("Error API");
+        const datos = await res.json();
 
-        if (!respuesta.ok) throw new Error("No se encontró la ruta");
-
-        const datosGeoJSON = await respuesta.json();
-
-        // 2. Dibujamos con el color que viene de la BD
-        // DIBUJAR EN EL MAPA
-        capaRutaActual = L.geoJSON(datosGeoJSON, {
-
-          // A. Estilo para las LÍNEAS (Rutas)
-          style: function (feature) {
+        capaRutaActual = L.geoJSON(datos, {
+          style: (feature) => {
             if (feature.properties.tipo === 'ruta') {
-              return {
-                color: feature.properties.color,
-                weight: 6,
-                opacity: 0.8
-              };
+              // Ida (Azul UNI), Vuelta (Amarillo/Naranja)
+              const color = feature.properties.sentido === 'ida' ? '#0047AB' : '#FF8C00';
+              return { color: color, weight: 6, opacity: 0.8 };
             }
           },
-
-          // B. Estilo para los PUNTOS (Paradas)
-          pointToLayer: function (feature, latlng) {
+          pointToLayer: (feature, latlng) => {
             if (feature.properties.tipo === 'parada') {
-              // Dibujamos un círculo bonito
-              return L.circleMarker(latlng, {
-                radius: 6,
-                fillColor: "#ffffff", // Blanco relleno
-                color: "#000",        // Borde negro
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-              });
+              return L.circleMarker(latlng, { radius: 5, fillColor: "white", color: "#000", weight: 1, opacity: 1, fillOpacity: 1 });
             }
           },
-
-          // C. Popups (Al hacer clic)
-          onEachFeature: function (feature, layer) {
-            if (feature.properties.tipo === 'parada') {
-              layer.bindPopup("🚏 " + feature.properties.nombre);
-            } else {
-              layer.bindPopup("🚌 Recorrido: " + feature.properties.sentido);
-            }
+          onEachFeature: (feature, layer) => {
+            layer.bindPopup(feature.properties.tipo === 'parada' ?
+              `🚏 ${feature.properties.nombre}` :
+              `🚌 Recorrido: ${feature.properties.sentido.toUpperCase()}`);
           }
-
         }).addTo(map);
 
-        map.fitBounds(capaRutaActual.getBounds());
-      } catch (error) {
-        alert("Error: " + error.message);
-        console.error(error);
-      }
+        // Mover panel en móvil para ver el mapa
+        if (window.innerWidth < 768) {
+          document.querySelector('.panel-rutas').scrollTop = 0; // Reset scroll
+          // Opcional: Colapsar panel
+        }
+
+        map.fitBounds(capaRutaActual.getBounds(), { padding: [50, 50] });
+
+      } catch (e) { alert("Error cargando ruta"); }
     }
 
     function limpiarMapa() {
-      if (capaRutaActual) {
-        map.removeLayer(capaRutaActual);
-        capaRutaActual = null;
-      }
-    }
-    // --- VARIABLES GLOBALES PARA EL GPS ---
-    let marcadorUsuario = null; // El pin
-    let circuloPrecision = null; // El círculo azul
-    let rastreoActivo = false; // Para saber si ya estamos siguiendo
-
-    // --- FUNCIÓN GPS MEJORADA (Rastreo en Tiempo Real) ---
-    function ubicarUsuario() {
-      if (!rastreoActivo) {
-        console.log("Iniciando rastreo GPS de alta precisión...");
-
-        // Leaflet tiene una opción mágica: 'watch: true'
-        map.locate({
-          setView: true,           // Mover el mapa hacia ti
-          maxZoom: 18,             // Zoom bien cerca
-          watch: true,             // <--- ESTO ACTIVA EL SEGUIMIENTO
-          enableHighAccuracy: true // <--- ESTO PIDE GPS REAL (NO SOLO WIFI)
-        });
-
-        rastreoActivo = true;
-        alert("📍 Rastreo activado: Muévete y el mapa te seguirá.");
-      } else {
-        // Opcional: Si ya está activo, solo centramos la vista
-        map.stopLocate();
-        rastreoActivo = false;
-        alert("⏹️ Rastreo detenido.");
-      }
+      if (capaRutaActual) { map.removeLayer(capaRutaActual); capaRutaActual = null; }
     }
 
-    // --- CUANDO LEAFLET DETECTA MOVIMIENTO ---
-    function onLocationFound(e) {
-      const radio = e.accuracy / 2; // Radio de precisión (en metros)
-
-      // Si es la primera vez, creamos el marcador
-      if (marcadorUsuario === null) {
-        // Usamos un icono diferente o el estándar
-        marcadorUsuario = L.marker(e.latlng).addTo(map)
-          .bindPopup("¡Estás aquí!").openPopup();
-
-        circuloPrecision = L.circle(e.latlng, {
-          radius: radio,
-          color: '#28a745',     // Borde verde
-          fillColor: '#28a745', // Relleno verde
-          fillOpacity: 0.2
-        }).addTo(map);
-
-      } else {
-        // Si ya existe, SOLO LO MOVEMOS (No creamos otro)
-        marcadorUsuario.setLatLng(e.latlng).bindPopup("Estás aquí (" + Math.round(radio) + "m error)").openPopup();
-        circuloPrecision.setLatLng(e.latlng);
-        circuloPrecision.setRadius(radio);
-      }
-    }
-
-    // --- SI HAY ERROR ---
-    function onLocationError(e) {
-      console.error(e.message);
-      alert("Error GPS: " + e.message);
-    }
-
-    // Conectamos los eventos
-    map.on('locationfound', onLocationFound);
-    map.on('locationerror', onLocationError);
-
-    // --- FUNCIÓN FAVORITOS ---
-    async function toggleFavorito(codigo, elementoEstrella) {
+    async function toggleFavorito(codigo, el) {
       try {
         const res = await fetch('/api/favorito', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ codigo_ruta: codigo })
         });
-
         const data = await res.json();
-
-        if (data.estado === 'agregado') {
-          elementoEstrella.innerHTML = '⭐'; // Estrella rellena
-        } else {
-          elementoEstrella.innerHTML = '☆'; // Estrella vacía
-        }
-      } catch (error) {
-        alert("Error al guardar favorito");
-      }
+        el.innerHTML = data.estado === 'agregado' ? '⭐' : '☆';
+      } catch (e) { alert("Error guardando favorito"); }
     }
   </script>
 </body>
