@@ -198,3 +198,85 @@ body {
     cursor: pointer;
     margin-top: 10px;
 }
+/* --- NUEVOS ESTILOS PARA LA V2 (Búsqueda + Iconos) --- */
+
+/* Barra de Búsqueda */
+.search-container {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px 15px 12px 40px; /* Espacio para el icono a la izquierda */
+    border: 1px solid #ddd;
+    border-radius: 25px; /* Redondita estilo iOS */
+    background-color: #f8f9fa;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.search-input:focus {
+    background-color: white;
+    box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.2); /* Sombra azul suave */
+    border-color: var(--primary);
+}
+
+.search-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+}
+
+/* Navbar Usuario Mejorada */
+.user-info-container {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Separación entre nombre y botón */
+}
+
+.user-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dark);
+    font-weight: 600;
+    font-size: 0.9rem;
+    background: #f0f2f5;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.btn-logout {
+    color: #c62828; /* Rojo para salir */
+    background: #ffebee;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+
+.btn-logout:hover {
+    transform: scale(1.1);
+    background: #ffcdd2;
+}
+
+.btn-login-nav {
+    text-decoration: none;
+    background: var(--primary);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

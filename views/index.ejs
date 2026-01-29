@@ -7,6 +7,9 @@
   <title>NicApp - Rutas TUC</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <link rel="stylesheet" href="/css/estilos.css">
 </head>
 
@@ -15,64 +18,84 @@
   <div id="mapa"></div>
 
   <div class="creditos">
-    © 2026 NicApp | Desarrollado por Estudiante de Ingeniería de Sistemas (UNI)
+    © 2026 NicApp | Ingeniería de Sistemas (UNI)
   </div>
 
   <div class="nicapp-ui">
 
     <nav class="navbar">
       <div class="brand">
-        🚌 NicApp
+        <i class="fa-solid fa-bus-simple fa-lg"></i> NicApp
       </div>
+
       <div class="user-controls">
         <% if (usuario) { %>
-          <a href="/logout">Salir (<%= usuario.nombre.split(' ')[0] %>)</a>
+          <div class="user-info-container">
+            <div class="user-badge">
+              <i class="fa-solid fa-circle-user"></i>
+              <span>
+                <%= usuario.nombre.split(' ')[0] %></span>
+            </div>
+            <a href="/logout" class="btn-logout" title="Cerrar Sesión">
+              <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+          </div>
         <% } else { %>
-          <a href="/login" style="background: var(--primary); color: white;">Entrar</a>
+          <a href="/login" class="btn-login-nav">
+            <i class="fa-solid fa-user"></i> Entrar
+          </a>
         <% } %>
       </div>
     </nav>
 
     <button class="gps-btn" onclick="ubicarUsuario()" title="Mi Ubicación">
-      📍
+      <i class="fa-solid fa-location-crosshairs"></i>
     </button>
 
     <div class="panel-rutas">
-      <h3 style="margin-bottom: 15px; color: var(--primary);">Rutas Disponibles</h3>
-      
-      <% if (rutasDisponibles && rutasDisponibles.length > 0) { %>
-        <% rutasDisponibles.forEach((ruta) => { %>
-          <div class="ruta-btn-container">
-            <button class="btn-ruta" onclick="mostrarRuta(' <%=ruta.codigo_ruta %>')">
-              Ruta <%= ruta.codigo_ruta %>
-                </button>
+      <h3 style="margin-bottom: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-route"></i> Rutas Disponibles
+      </h3>
 
-                <% if (locals.usuario) { %>
-                  <% const esFav=(typeof misFavoritos !=='undefined' && misFavoritos.includes(ruta.codigo_ruta)); %>
-                    <span class="star-btn" onclick="toggleFavorito('<%= ruta.codigo_ruta %>', this)">
-                      <%= esFav ? '⭐' : '☆' %>
-                    </span>
-                    <% } %>
+      <div class="search-container">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="buscador" class="search-input" placeholder="Buscar ruta (ej: 104)..." onkeyup="filtrarRutas()">
       </div>
-      <% }); %>
-        <% } else { %>
-          <p style="text-align: center; color: #777;">Cargando rutas...</p>
-          <% } %>
+      
+      <div id="lista-rutas">
+        <% if (rutasDisponibles && rutasDisponibles.length > 0) { %>
+          <% rutasDisponibles.forEach((ruta) => { %>
+            <div class="ruta-btn-container" data-codigo="<%= ruta.codigo_ruta %>">
+              <button class="btn-ruta" onclick="mostrarRuta(' <%=ruta.codigo_ruta %>')">
+                  <i class="fa-solid fa-bus" style="color: #666; margin-right: 8px;"></i>
+                  Ruta <%= ruta.codigo_ruta %>
+                    </button>
 
-            <button onclick="limpiarMapa()"
-              style="width:100%; padding:10px; margin-top:10px; border:1px solid #ddd; background:white; border-radius:8px;">
-              Limpiar Mapa
-            </button>
-  </div>
+                    <% if (locals.usuario) { %>
+                      <% const esFav=(typeof misFavoritos !=='undefined' && misFavoritos.includes(ruta.codigo_ruta)); %>
+                        <span class="star-btn" onclick="toggleFavorito('<%= ruta.codigo_ruta %>', this)"
+                          style="color: <%= esFav ? '#FFD700' : '#ccc' %>;">
+                          <i class="<%= esFav ? 'fa-solid' : 'fa-regular' %> fa-star"></i>
+                        </span>
+                        <% } %>
+            </div>
+            <% }); %>
+              <% } else { %>
+                <p style="text-align: center; color: #777;">Cargando rutas...</p>
+                <% } %>
+          </div>
+
+          <button onclick="limpiarMapa()"
+            style="width:100%; padding:10px; margin-top:10px; border:1px solid #ddd; background:white; border-radius:8px; cursor: pointer; color: #555;">
+            <i class="fa-solid fa-eraser"></i> Limpiar Mapa
+          </button>
+      </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // 1. INICIALIZAR MAPA
     const map = L.map('mapa', { zoomControl: false }).setView([12.136, -86.25], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-    // Zoom arriba derecha
     L.control.zoom({ position: 'topright' }).addTo(map);
 
     let capaRutaActual = null;
@@ -80,22 +103,42 @@
     let circuloPrecision = null;
     let rastreoActivo = false;
 
-    // --- GPS MEJORADO ---
+    // --- FUNCIÓN DE BÚSQUEDA ---
+    function filtrarRutas() {
+      const texto = document.getElementById('buscador').value.toLowerCase();
+      const filas = document.querySelectorAll('.ruta-btn-container');
+
+      filas.forEach(fila => {
+        const codigo = fila.getAttribute('data-codigo').toLowerCase();
+        // Si el código contiene lo que escribes (ej: "11" encuentra "110", "114", etc.)
+        if (codigo.includes(texto)) {
+          fila.style.display = "flex";
+        } else {
+          fila.style.display = "none";
+        }
+      });
+    }
+
     function ubicarUsuario() {
       if (!rastreoActivo) {
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-          alert("⚠️ Tu celular requiere HTTPS para usar el GPS.");
+          alert("⚠️ Requiere HTTPS para GPS.");
         }
-
         map.locate({ setView: true, maxZoom: 17, watch: true, enableHighAccuracy: true });
         rastreoActivo = true;
-        document.querySelector('.gps-btn').style.background = '#e8f5e9';
-        document.querySelector('.gps-btn').style.border = '2px solid #28a745';
+
+        // Cambio visual del botón GPS
+        const btn = document.querySelector('.gps-btn');
+        btn.style.background = '#e8f5e9';
+        btn.style.color = '#28a745';
+        btn.innerHTML = '<i class="fa-solid fa-location-crosshairs fa-beat"></i>'; // Icono animado
       } else {
         map.stopLocate();
         rastreoActivo = false;
-        document.querySelector('.gps-btn').style.background = 'white';
-        document.querySelector('.gps-btn').style.border = 'none';
+        const btn = document.querySelector('.gps-btn');
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+        btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i>';
         alert("Rastreo detenido");
       }
     }
@@ -103,42 +146,38 @@
     map.on('locationfound', (e) => {
       const radio = e.accuracy / 2;
       if (marcadorUsuario === null) {
-        marcadorUsuario = L.marker(e.latlng).addTo(map).bindPopup("Tú").openPopup();
-        circuloPrecision = L.circle(e.latlng, { radius: radio, color: '#0047AB' }).addTo(map);
+        // Marcador personalizado con icono de persona
+        const iconoUsuario = L.divIcon({
+          className: 'custom-div-icon',
+          html: "<div style='background-color:#4285F4; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);'></div>",
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+
+        marcadorUsuario = L.marker(e.latlng, { icon: iconoUsuario }).addTo(map).bindPopup("<b>Tú estás aquí</b>").openPopup();
+        circuloPrecision = L.circle(e.latlng, { radius: radio, color: '#4285F4', fillOpacity: 0.15 }).addTo(map);
       } else {
         marcadorUsuario.setLatLng(e.latlng);
         circuloPrecision.setLatLng(e.latlng).setRadius(radio);
       }
     });
 
-    map.on('locationerror', (e) => {
-      // Solo mostramos alerta si el usuario intentó activarlo explícitamente
-      if (rastreoActivo) alert("Error GPS: " + e.message);
-    });
+    map.on('locationerror', (e) => { if (rastreoActivo) alert("Error GPS: " + e.message); });
 
-    // --- MOSTRAR RUTA (CON DIAGNÓSTICO DE ERROR) ---
     async function mostrarRuta(nombre) {
-      // 1. Limpiar nombre por si acaso (trim quita espacios invisibles)
       nombre = nombre.trim();
-
       if (capaRutaActual) map.removeLayer(capaRutaActual);
 
       try {
-        console.log("Solicitando ruta:", nombre);
         const res = await fetch(`/api/ruta/${nombre}`);
-
-        // Si el servidor responde con error (ej: 500 o 404)
         if (!res.ok) {
           const errorText = await res.text();
-          throw new Error(`Servidor respondió: ${res.status} - ${errorText}`);
+          throw new Error(`Servidor: ${res.status} - ${errorText}`);
         }
-
         const datos = await res.json();
 
-        // Validar si vinieron datos
         if (!datos.features || datos.features.length === 0) {
-          alert("La ruta " + nombre + " no tiene trazado en la base de datos.");
-          return;
+          alert("Ruta sin datos."); return;
         }
 
         capaRutaActual = L.geoJSON(datos, {
@@ -150,26 +189,21 @@
           },
           pointToLayer: (feature, latlng) => {
             if (feature.properties.tipo === 'parada') {
-              return L.circleMarker(latlng, { radius: 5, fillColor: "white", color: "#000", weight: 1, opacity: 1, fillOpacity: 1 });
+              return L.circleMarker(latlng, { radius: 5, fillColor: "white", color: "#333", weight: 1, opacity: 1, fillOpacity: 1 });
             }
           },
           onEachFeature: (feature, layer) => {
-            layer.bindPopup(feature.properties.tipo === 'parada' ?
-              `🚏 ${feature.properties.nombre}` :
-              `🚌 Recorrido: ${feature.properties.sentido.toUpperCase()}`);
+            // Iconos en el Popup
+            const icono = feature.properties.tipo === 'parada' ? '<i class="fa-solid fa-sign-hanging"></i>' : '<i class="fa-solid fa-bus"></i>';
+            const texto = feature.properties.tipo === 'parada' ? feature.properties.nombre : `Recorrido: ${feature.properties.sentido.toUpperCase()}`;
+            layer.bindPopup(`<b>${icono} ${texto}</b>`);
           }
         }).addTo(map);
 
-        if (window.innerWidth < 768) {
-          document.querySelector('.panel-rutas').scrollTop = 0;
-        }
-
+        if (window.innerWidth < 768) { document.querySelector('.panel-rutas').scrollTop = 0; }
         map.fitBounds(capaRutaActual.getBounds(), { padding: [50, 50] });
 
-      } catch (e) {
-        console.error(e);
-        alert("❌ Error cargando ruta:\n" + e.message);
-      }
+      } catch (e) { console.error(e); alert("❌ Error: " + e.message); }
     }
 
     function limpiarMapa() {
@@ -184,7 +218,17 @@
           body: JSON.stringify({ codigo_ruta: codigo })
         });
         const data = await res.json();
-        el.innerHTML = data.estado === 'agregado' ? '⭐' : '☆';
+        // Cambiar icono e icono color
+        const icono = el.querySelector('i');
+        if (data.estado === 'agregado') {
+          icono.classList.remove('fa-regular');
+          icono.classList.add('fa-solid');
+          el.style.color = '#FFD700';
+        } else {
+          icono.classList.remove('fa-solid');
+          icono.classList.add('fa-regular');
+          el.style.color = '#ccc';
+        }
       } catch (e) { alert("Error guardando favorito"); }
     }
   </script>
