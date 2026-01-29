@@ -27,23 +27,23 @@
       <div class="user-controls">
         <% if (usuario) { %>
           <a href="/logout">Salir (<%= usuario.nombre.split(' ')[0] %>)</a>
-                <% } else { %>
-                    <a href="/login" style="background: var(--primary); color: white;">Entrar</a>
-                <% } %>
-            </div>
-        </nav>
+        <% } else { %>
+          <a href="/login" style="background: var(--primary); color: white;">Entrar</a>
+        <% } %>
+      </div>
+    </nav>
 
-        <button class="gps-btn" onclick="ubicarUsuario()" title="Mi Ubicación">
-            📍
-        </button>
+    <button class="gps-btn" onclick="ubicarUsuario()" title="Mi Ubicación">
+      📍
+    </button>
 
-        <div class="panel-rutas">
-            <h3 style="margin-bottom: 15px; color: var(--primary);">Rutas Disponibles</h3>
-            
-            <% if (rutasDisponibles && rutasDisponibles.length > 0) { %>
-                <% rutasDisponibles.forEach((ruta) => { %>
-                    <div class="ruta-btn-container">
-                        <button class="btn-ruta" onclick="mostrarRuta(' <%=ruta.codigo_ruta %>')">
+    <div class="panel-rutas">
+      <h3 style="margin-bottom: 15px; color: var(--primary);">Rutas Disponibles</h3>
+      
+      <% if (rutasDisponibles && rutasDisponibles.length > 0) { %>
+        <% rutasDisponibles.forEach((ruta) => { %>
+          <div class="ruta-btn-container">
+            <button class="btn-ruta" onclick="mostrarRuta(' <%=ruta.codigo_ruta %>')">
               Ruta <%= ruta.codigo_ruta %>
                 </button>
 
@@ -72,7 +72,7 @@
     const map = L.map('mapa', { zoomControl: false }).setView([12.136, -86.25], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    // Mover controles de zoom a la derecha arriba
+    // Zoom arriba derecha
     L.control.zoom({ position: 'topright' }).addTo(map);
 
     let capaRutaActual = null;
@@ -83,14 +83,12 @@
     // --- GPS MEJORADO ---
     function ubicarUsuario() {
       if (!rastreoActivo) {
-        // Chequeo de seguridad para iPhone/Android
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-          alert("⚠️ ALERTA DE SEGURIDAD ⚠️\n\nTu celular bloquea el GPS porque esta conexión no es HTTPS.\n\nPara que funcione en el iPhone, necesitas un certificado SSL o usar 'ngrok' en desarrollo.");
+          alert("⚠️ Tu celular requiere HTTPS para usar el GPS.");
         }
 
         map.locate({ setView: true, maxZoom: 17, watch: true, enableHighAccuracy: true });
         rastreoActivo = true;
-        // Feedback visual botón
         document.querySelector('.gps-btn').style.background = '#e8f5e9';
         document.querySelector('.gps-btn').style.border = '2px solid #28a745';
       } else {
@@ -114,22 +112,38 @@
     });
 
     map.on('locationerror', (e) => {
-      alert("Error GPS: " + e.message + "\n(Recuerda: En iPhone requieres HTTPS)");
+      // Solo mostramos alerta si el usuario intentó activarlo explícitamente
+      if (rastreoActivo) alert("Error GPS: " + e.message);
     });
 
-    // --- FUNCIONES DE RUTA Y FAVORITOS (Las mismas de antes) ---
+    // --- MOSTRAR RUTA (CON DIAGNÓSTICO DE ERROR) ---
     async function mostrarRuta(nombre) {
+      // 1. Limpiar nombre por si acaso (trim quita espacios invisibles)
+      nombre = nombre.trim();
+
       if (capaRutaActual) map.removeLayer(capaRutaActual);
 
       try {
+        console.log("Solicitando ruta:", nombre);
         const res = await fetch(`/api/ruta/${nombre}`);
-        if (!res.ok) throw new Error("Error API");
+
+        // Si el servidor responde con error (ej: 500 o 404)
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Servidor respondió: ${res.status} - ${errorText}`);
+        }
+
         const datos = await res.json();
+
+        // Validar si vinieron datos
+        if (!datos.features || datos.features.length === 0) {
+          alert("La ruta " + nombre + " no tiene trazado en la base de datos.");
+          return;
+        }
 
         capaRutaActual = L.geoJSON(datos, {
           style: (feature) => {
             if (feature.properties.tipo === 'ruta') {
-              // Ida (Azul UNI), Vuelta (Amarillo/Naranja)
               const color = feature.properties.sentido === 'ida' ? '#0047AB' : '#FF8C00';
               return { color: color, weight: 6, opacity: 0.8 };
             }
@@ -146,15 +160,16 @@
           }
         }).addTo(map);
 
-        // Mover panel en móvil para ver el mapa
         if (window.innerWidth < 768) {
-          document.querySelector('.panel-rutas').scrollTop = 0; // Reset scroll
-          // Opcional: Colapsar panel
+          document.querySelector('.panel-rutas').scrollTop = 0;
         }
 
         map.fitBounds(capaRutaActual.getBounds(), { padding: [50, 50] });
 
-      } catch (e) { alert("Error cargando ruta"); }
+      } catch (e) {
+        console.error(e);
+        alert("❌ Error cargando ruta:\n" + e.message);
+      }
     }
 
     function limpiarMapa() {
