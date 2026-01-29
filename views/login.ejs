@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Rutas TUC</title>
+    <style>body { font-family: sans-serif; padding: 40px; text-align: center; }</style>
+</head>
+<body>
+    <h2>Iniciar Sesión</h2>
+
+    <% if (locals.error) { %>
+        <p style="color: red;"><%= error %></p>
+    <% } %>
+
+    <form action="/login" method="POST">
+        <input type="email" name="email" placeholder="Correo" required><br><br>
+        <input type="password" name="password" placeholder="Contraseña" required><br><br>
+        <button type="submit">Entrar</button>
+    </form>
+    <p>¿No tienes cuenta? <a href="/registro">Regístrate aquí</a></p>
+</body>
+</html>

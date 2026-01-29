@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Registro - Rutas TUC</title>
+    <style>body { font-family: sans-serif; padding: 40px; text-align: center; }</style>
+</head>
+<body>
+    <h2>Crear Cuenta Nueva</h2>
+    
+    <% if (locals.error) { %>
+        <p style="color: red;"><%= error %></p>
+    <% } %>
+
+    <form action="/registro" method="POST">
+        <input type="text" name="nombre" placeholder="Nombre Completo" required><br><br>
+        <input type="email" name="email" placeholder="Correo Electrónico" required><br><br>
+        <input type="password" name="password" placeholder="Contraseña" required><br><br>
+        <button type="submit">Registrarse</button>
+    </form>
+    <p>¿Ya tienes cuenta? <a href="/login">Inicia Sesión</a></p>
+</body>
+</html>
