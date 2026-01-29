@@ -66,10 +66,15 @@ app.post('/login', async (req, res) => {
             const user = resultado.rows[0];
             const valida = await bcrypt.compare(password, user.password_hash); // Comparar hash
             
-            if (valida) {
-                req.session.usuario = { id: user.usuario_id, nombre: user.nombre_completo };
-                return res.redirect('/');
-            }
+           if (valida) {
+    // AHORA GUARDAMOS EL ROL TAMBIÉN
+    req.session.usuario = { 
+        id: user.usuario_id, 
+        nombre: user.nombre_completo,
+        rol: user.rol // <--- AGREGAR ESTO
+    };
+    return res.redirect('/');
+}
         }
         res.render('login', { error: 'Credenciales incorrectas' });
     } catch (error) {
@@ -82,7 +87,72 @@ app.post('/login', async (req, res) => {
 app.get('/logout', (req, res) => {
     req.session.destroy(() => res.redirect('/'));
 });
+// --- MIDDLEWARE DE SEGURIDAD (SOLO ADMINS) ---
+function verificarAdmin(req, res, next) {
+    if (req.session.usuario && req.session.usuario.rol === 'admin') {
+        return next(); // Pase adelante, jefe
+    }
+    res.status(403).send("⛔ Acceso Denegado: No tienes permisos de Administrador.");
+}
 
+// --- RUTAS DEL PANEL DE ADMIN ---
+
+// 1. Ver el Panel (Carga usuarios y rutas para mostrar)
+app.get('/admin', verificarAdmin, async (req, res) => {
+    try {
+        const usuarios = await pool.query('SELECT * FROM usuarios ORDER BY usuario_id DESC');
+        const rutas = await pool.query('SELECT * FROM rutas ORDER BY codigo_ruta ASC');
+        res.render('admin', { usuarios: usuarios.rows, rutas: rutas.rows });
+    } catch (error) {
+        res.send("Error cargando admin: " + error.message);
+    }
+});
+
+// 2. Cambiar Rol de Usuario (Ascender/Degradar)
+app.post('/admin/cambiar-rol', verificarAdmin, async (req, res) => {
+    const { usuario_id, nuevo_rol } = req.body;
+    await pool.query('UPDATE usuarios SET rol = $1 WHERE usuario_id = $2', [nuevo_rol, usuario_id]);
+    res.redirect('/admin');
+});
+
+// 3. Eliminar Usuario
+app.post('/admin/borrar-usuario', verificarAdmin, async (req, res) => {
+    const { usuario_id } = req.body;
+    await pool.query('DELETE FROM usuarios WHERE usuario_id = $1', [usuario_id]);
+    res.redirect('/admin');
+});
+
+// 4. Crear Nueva Ruta (Solo el nombre y color)
+app.post('/admin/nueva-ruta', verificarAdmin, async (req, res) => {
+    const { codigo, nombre, color } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO rutas (codigo_ruta, nombre_comercial, color_hex) VALUES ($1, $2, $3)',
+            [codigo, nombre, color]
+        );
+        res.redirect('/admin');
+    } catch (e) { res.send("Error creando ruta: " + e.message); }
+});
+
+// 5. Subir Trazado (Ida/Vuelta) usando el GeoJSON
+app.post('/admin/subir-trazado', verificarAdmin, async (req, res) => {
+    const { ruta_id, sentido, geojson_texto } = req.body;
+    try {
+        // Borramos si ya existía ese trazado para no duplicar
+        await pool.query('DELETE FROM variantes_ruta WHERE ruta_id = $1 AND sentido = $2', [ruta_id, sentido]);
+
+        // Insertamos el nuevo (Magia PostGIS)
+        const query = `
+            INSERT INTO variantes_ruta (ruta_id, sentido, trazado_geo)
+            SELECT $1, $2, 
+            ST_SetSRID(ST_Multi(ST_Collect(ST_GeomFromGeoJSON(feat->>'geometry'))), 4326)
+            FROM jsonb_array_elements($3::jsonb->'features') AS feat
+        `;
+        await pool.query(query, [ruta_id, sentido, geojson_texto]);
+        
+        res.redirect('/admin');
+    } catch (e) { res.send("Error procesando GeoJSON: " + e.message); }
+});
 // --- RUTAS DEL MAPA ---
 
 app.get('/', async (req, res) => {
@@ -179,7 +249,29 @@ app.post('/api/favorito', async (req, res) => {
         res.status(500).json({error: "Error servidor"});
     }
 });
+// API: Planificador de Viajes
+app.post('/api/planificar-viaje', async (req, res) => {
+    const { lat_origen, lon_origen, lat_destino, lon_destino } = req.body;
 
+    try {
+        const resultado = await pool.query(
+            "SELECT * FROM encontrar_ruta_bus($1, $2, $3, $4)",
+            [lat_origen, lon_origen, lat_destino, lon_destino]
+        );
+
+        if (resultado.rows.length === 0) {
+            // Este mensaje se enviaba, pero el frontend no lo leía bien si había error
+            return res.json({ exito: false, mensaje: "No hay ruta directa cercana (< 1km)." });
+        }
+
+        res.json({ exito: true, opciones: resultado.rows });
+
+    } catch (error) {
+        console.error(error);
+        // Aquí mandamos "error" explícitamente para que el frontend lo muestre
+        res.status(500).json({ error: error.message }); 
+    }
+});
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

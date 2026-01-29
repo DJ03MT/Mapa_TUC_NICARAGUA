@@ -84,6 +84,20 @@
                 <p style="text-align: center; color: #777;">Cargando rutas...</p>
                 <% } %>
           </div>
+          <div style="background: #e3f2fd; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+            <h4 style="color: var(--primary); margin-bottom: 8px;"><i class="fa-solid fa-diamond-turn-right"></i> ¿A
+              dónde vas?</h4>
+
+            <div class="search-container" style="margin-bottom: 5px;">
+              <input type="text" id="input-destino" class="search-input" placeholder="Ej: Metrocentro, UCA..."
+                style="background: white;">
+              <button onclick="buscarDestino()"
+                style="position:absolute; right:5px; top:5px; padding:8px; border:none; background:var(--primary); color:white; border-radius:50%; cursor:pointer;">
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+            <div id="instrucciones-viaje" style="font-size: 0.9rem; margin-top: 10px;"></div>
+          </div>
 
           <button onclick="limpiarMapa()"
             style="width:100%; padding:10px; margin-top:10px; border:1px solid #ddd; background:white; border-radius:8px; cursor: pointer; color: #555;">
@@ -230,6 +244,152 @@
           el.style.color = '#ccc';
         }
       } catch (e) { alert("Error guardando favorito"); }
+    }
+    let marcadorDestino = null;
+
+    // 1. Convertir texto a coordenadas (Geocoding)
+    async function buscarDestino() {
+      const query = document.getElementById('input-destino').value;
+      if (!query) return;
+
+      // Usamos Nominatim (OpenStreetMap Gratis) limitado a Nicaragua
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=ni&viewbox=-87,13,-83,10&bounded=1`;
+
+      try {
+        document.getElementById('instrucciones-viaje').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Buscando lugar...';
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.length > 0) {
+          const lugar = data[0];
+          const latDest = parseFloat(lugar.lat);
+          const lonDest = parseFloat(lugar.lon);
+
+          // Dibujar en mapa
+          if (marcadorDestino) map.removeLayer(marcadorDestino);
+          marcadorDestino = L.marker([latDest, lonDest], {
+            icon: L.divIcon({ html: '<i class="fa-solid fa-flag-checkered" style="color:red; font-size:24px;"></i>', className: 'dummy' })
+          }).addTo(map).bindPopup(lugar.display_name).openPopup();
+
+          map.setView([latDest, lonDest], 14);
+
+          // CALCULAR RUTA
+          calcularRutaOptima(latDest, lonDest);
+        } else {
+          alert("Lugar no encontrado en Nicaragua.");
+        }
+      } catch (e) { alert("Error buscando lugar"); }
+    }
+
+    // 2. Preguntar al Backend cómo llegar
+    // Variable global para limpiar las caminatas anteriores
+    let capasCaminata = [];
+
+    async function calcularRutaOptima(latDest, lonDest) {
+      if (!marcadorUsuario) {
+        alert("⚠️ Primero activa tu GPS (Botón 📍) para saber dónde estás.");
+        return;
+      }
+
+      // Limpiamos caminatas anteriores si existen
+      capasCaminata.forEach(layer => map.removeLayer(layer));
+      capasCaminata = [];
+
+      const latOrigen = marcadorUsuario.getLatLng().lat;
+      const lonOrigen = marcadorUsuario.getLatLng().lng;
+      const divInstrucciones = document.getElementById('instrucciones-viaje');
+
+      divInstrucciones.innerHTML = '<i class="fa-solid fa-gears fa-spin"></i> Calculando...';
+
+      try {
+        const res = await fetch('/api/planificar-viaje', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat_origen: latOrigen,
+            lon_origen: lonOrigen,
+            lat_destino: latDest,
+            lon_destino: lonDest
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.exito) {
+          const opcion = data.opciones[0];
+
+          // 1. Mostrar la Ruta del Bus
+          mostrarRuta(opcion.codigo_ruta);
+
+          // --- DIBUJAR CAMINATAS ---
+
+          // A. Parsear coordenadas de las paradas (vienen como GeoJSON string)
+          const geoOrigen = JSON.parse(opcion.geo_parada_origen);
+          const geoDestino = JSON.parse(opcion.geo_parada_destino);
+
+          // Nota: GeoJSON es [lon, lat], Leaflet usa [lat, lon]. Hay que invertir.
+          const coordParadaSubida = [geoOrigen.coordinates[1], geoOrigen.coordinates[0]];
+          const coordParadaBajada = [geoDestino.coordinates[1], geoDestino.coordinates[0]];
+
+          // B. Línea Punteada 1: Tú -> Parada Subida
+          const caminata1 = L.polyline([[latOrigen, lonOrigen], coordParadaSubida], {
+            color: 'black',
+            dashArray: '5, 10', // Esto hace el efecto punteado
+            weight: 4,
+            opacity: 0.6
+          }).addTo(map);
+
+          // C. Línea Punteada 2: Parada Bajada -> Destino
+          const caminata2 = L.polyline([coordParadaBajada, [latDest, lonDest]], {
+            color: 'black',
+            dashArray: '5, 10',
+            weight: 4,
+            opacity: 0.6
+          }).addTo(map);
+
+          // D. Resaltar Parada de Subida (Círculo Verde Pulsante)
+          const marcaSubida = L.circleMarker(coordParadaSubida, {
+            radius: 8,
+            fillColor: "#00e676", // Verde brillante
+            color: "black",
+            weight: 2,
+            fillOpacity: 1
+          }).bindPopup("<b>👋 ¡Sube aquí!</b>").addTo(map).openPopup();
+
+          // E. Resaltar Parada de Bajada (Círculo Rojo)
+          const marcaBajada = L.circleMarker(coordParadaBajada, {
+            radius: 8,
+            fillColor: "#ff1744", // Rojo alerta
+            color: "black",
+            weight: 2,
+            fillOpacity: 1
+          }).bindPopup("<b>🛑 ¡Bájate aquí!</b>").addTo(map);
+
+          // Guardamos todo para poder borrarlo después
+          capasCaminata.push(caminata1, caminata2, marcaSubida, marcaBajada);
+
+          // --- MOSTRAR TEXTO ---
+          divInstrucciones.innerHTML = `
+                    <div style="background: white; padding: 10px; border-radius: 5px; border-left: 5px solid ${opcion.color_hex}; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                        <h4 style="margin:0; color: ${opcion.color_hex};">¡Toma la Ruta ${opcion.codigo_ruta}! <i class="fa-solid fa-bus"></i></h4>
+                        <ul style="padding-left: 20px; margin: 5px 0; font-size: 0.9rem; color: #555;">
+                            <li>🏃‍♂️ Camina <b>${Math.round(opcion.distancia_caminar_origen)}m</b> (Línea punteada) hasta <b>${opcion.parada_origen}</b>.</li>
+                            <li>🚌 Viaja en la ruta.</li>
+                            <li>🛑 Bájate en <b>${opcion.parada_destino}</b>.</li>
+                            <li>🏁 Camina <b>${Math.round(opcion.distancia_caminar_destino)}m</b> a tu destino.</li>
+                        </ul>
+                    </div>
+                `;
+        } else if (data.error) {
+          divInstrucciones.innerHTML = `<div style="color:red;">❌ Error: ${data.error}</div>`;
+        } else {
+          divInstrucciones.innerHTML = `<div style="color:orange;">${data.mensaje || 'Sin ruta directa.'}</div>`;
+        }
+      } catch (e) {
+        console.error(e);
+        divInstrucciones.innerHTML = `<div style="color:red;">Error de conexión.</div>`;
+      }
     }
   </script>
 </body>

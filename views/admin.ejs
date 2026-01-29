@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - NicApp</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: #f4f6f8;
+            overflow: auto;
+            /* Permitir scroll aquí */
+        }
+
+        .admin-container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        /* Tarjetas */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .card h2 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* Tablas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* Formularios */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .full-width {
+            grid-column: span 2;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            height: 100px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .btn-action {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        .btn-blue {
+            background: var(--primary);
+            width: 100%;
+            padding: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-warning {
+            background: #f1c40f;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🛠️ Panel de Control</h1>
+            <a href="/" class="btn-login-nav" style="background: #666;">← Volver al Mapa</a>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-bus"></i> 1. Crear Nueva Ruta</h2>
+            <form action="/admin/nueva-ruta" method="POST">
+                <div class="form-grid">
+                    <input type="text" name="codigo" placeholder="Código (Ej: 114)" required>
+                    <input type="text" name="nombre" placeholder="Nombre Comercial (Ej: Ruta 114)" required>
+                    <div class="full-width">
+                        <label>Color de la Ruta:</label>
+                        <input type="color" name="color" value="#0047AB" style="height: 40px;">
+                    </div>
+                </div>
+                <button type="submit" class="btn-action btn-blue">Crear Ruta</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-map-location-dot"></i> 2. Subir Trazado (Ida o Vuelta)</h2>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                Copia el JSON de <b>geojson.io</b> y pégalo aquí. El sistema lo convertirá automáticamente.
+            </p>
+            <form action="/admin/subir-trazado" method="POST">
+                <div class="form-grid">
+                    <select name="ruta_id" required>
+                        <option value="">Selecciona la Ruta...</option>
+                        <% rutas.forEach(r=> { %>
+                            <option value="<%= r.ruta_id %>">
+                                <%= r.codigo_ruta %> - <%= r.nombre_comercial %>
+                            </option>
+                            <% }) %>
+                    </select>
+                    <select name="sentido" required>
+                        <option value="ida">Ida (Inicio -> Fin)</option>
+                        <option value="vuelta">Vuelta (Fin -> Inicio)</option>
+                    </select>
+                    <div class="full-width">
+                        <textarea name="geojson_texto"
+                            placeholder='Pega aquí el JSON: { "type": "FeatureCollection"... }' required></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn-action btn-blue" style="background: #27ae60;">Guardar Trazado</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-users-gear"></i> 3. Usuarios Registrados</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Rol Actual</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% usuarios.forEach(u=> { %>
+                        <tr>
+                            <td>
+                                <%= u.nombre_completo %>
+                            </td>
+                            <td>
+                                <%= u.email %>
+                            </td>
+                            <td>
+                                <span
+                                    style="padding: 2px 8px; border-radius: 10px; background: <%= u.rol === 'admin' ? '#d1c4e9' : '#e0e0e0' %>;">
+                                    <%= u.rol %>
+                                </span>
+                            </td>
+                            <td style="display: flex; gap: 5px;">
+                                <form action="/admin/cambiar-rol" method="POST">
+                                    <input type="hidden" name="usuario_id" value="<%= u.usuario_id %>">
+                                    <input type="hidden" name="nuevo_rol"
+                                        value="<%= u.rol === 'admin' ? 'usuario' : 'admin' %>">
+                                    <button type="submit" class="btn-action btn-warning" title="Cambiar Rol">
+                                        <i class="fa-solid fa-user-shield"></i>
+                                    </button>
+                                </form>
+                                <form action="/admin/borrar-usuario" method="POST"
+                                    onsubmit="return confirm('¿Seguro que quieres eliminar a este usuario?');">
+                                    <input type="hidden" name="usuario_id" value="<%= u.usuario_id %>">
+                                    <button type="submit" class="btn-action btn-danger" title="Eliminar Usuario">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        <% }) %>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</body>
+
+</html>
